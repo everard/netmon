@@ -57,7 +57,7 @@ lnm_update_state(lnm_state* state);
 ////////////////////////////////////////////////////////////////////////////////
 
 static void
-lnm_print_speed(char dst[static 4], uint64_t x);
+lnm_print_speed(char dst[static 5], uint64_t x);
 
 static void
 lnm_print_state(lnm_state const* state);
@@ -241,21 +241,26 @@ cleanup:
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-lnm_print_speed(char dst[static 4], uint64_t x) {
+lnm_print_speed(char dst[static 5], uint64_t x) {
     static char const prefixes[] = {
         'B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'};
 
-    char c = '0';
+    char c[2] = {'0', '0'};
     for(size_t i = 0; i != sizeof(prefixes); ++i) {
         if(x < 10) {
             dst[0] = (char)('0' + x);
             dst[1] = '.';
-            dst[2] = c;
-            dst[3] = prefixes[i];
+            dst[2] = c[0];
+            dst[3] = c[1];
+            dst[4] = prefixes[i];
             break;
         } else {
-            uint16_t x_r = (uint32_t)(x & 0x3FF);
-            c = ((x_r == 0) ? '0' : (char)('1' + (x_r / 114)));
+            uint16_t x_r = (uint16_t)(x & 0x3FF);
+            uint16_t x_r0 = x_r / 103;
+            uint16_t x_r1 = x_r % 103;
+
+            c[0] = (char)('0' + x_r0);
+            c[1] = ((x_r == 0) ? '0' : (char)('1' + (x_r1 / 12)));
         }
 
         x >>= 10;
@@ -274,25 +279,25 @@ lnm_print_state(lnm_state const* state) {
         return;
     }
 
-    char buf[17] = {};
+    char buf[19] = {};
     lnm_print_speed(&buf[0], state->d_rx[1]);
-    lnm_print_speed(&buf[8], state->d_tx[1]);
+    lnm_print_speed(&buf[9], state->d_tx[1]);
 
-    buf[4] = 0xE2;
-    buf[5] = 0x96;
-    buf[6] = 0xBC;
-    buf[7] = ' ';
+    buf[5] = 0xE2;
+    buf[6] = 0x96;
+    buf[7] = 0xBC;
+    buf[8] = ' ';
 
-    buf[12] = 0xE2;
-    buf[13] = 0x96;
-    buf[14] = 0xB2;
+    buf[14] = 0xE2;
+    buf[15] = 0x96;
+    buf[16] = 0xB2;
 
-    buf[15] = '\n';
-    buf[16] = '\0';
+    buf[17] = '\n';
+    buf[18] = '\0';
 
     if(!state->update_succeeded[1]) {
-        buf[3] = '?';
-        buf[11] = '?';
+        buf[4] = '?';
+        buf[13] = '?';
     }
 
     fputs(buf, stdout);
@@ -354,7 +359,9 @@ main(int argc, char* argv[]) {
     struct timespec duration = {.tv_sec = 2, .tv_nsec = 0}, remaining = {};
     for(lnm_update_state(&state); true;) {
         if((remaining.tv_sec != 0) || (remaining.tv_nsec != 0)) {
-            thrd_sleep(&remaining, &remaining);
+            if(thrd_sleep(&remaining, &remaining) == 0) {
+                remaining = (struct timespec){};
+            }
             continue;
         }
 
@@ -362,7 +369,9 @@ main(int argc, char* argv[]) {
         lnm_print_state(&state);
 
         remaining = (struct timespec){};
-        thrd_sleep(&duration, &remaining);
+        if(thrd_sleep(&duration, &remaining) < -1) {
+            remaining = duration;
+        }
     }
 
     return EXIT_SUCCESS;
