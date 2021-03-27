@@ -1,5 +1,5 @@
 # DESCRIPTION
-This repository contains the source code for a simple stand-alone zero-config Linux network monitor.
+This repository contains the source code for a simple stand-alone zero-config network monitor for operating systems which have `proc` pseudo-file system.
 This program has _very_ minimal RAM/CPU footprint and might come in handy if you are using [i3blocks](https://github.com/vivien/i3blocks).
 
 # COMPILATION/INSTALLATION
